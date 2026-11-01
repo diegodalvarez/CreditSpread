@@ -7,6 +7,8 @@ Created on Mon Sep 21 11:41:34 2026
 
 import os
 import pandas as pd
+import yfinance as yf
+import datetime as dt
 
 class CreditDataCollector:
     
@@ -16,6 +18,10 @@ class CreditDataCollector:
         self.src_path  = os.getcwd()
         self.repo_path = os.path.abspath(os.path.join(self.src_path, ".."))
         self.data_path = os.path.join(self.repo_path, "data")
+        
+        self.hy_tickers = ["USHY", "HYG", "SPHY", "JNK"]
+        self.start_date = dt.date(year = 1990, month = 1, day = 1)
+        self.end_date   = dt.date(year = 2026, month = 1, day = 1)
         
     def get_raw_index_data(self, verbose: bool = True) -> None: 
         
@@ -95,10 +101,33 @@ class CreditDataCollector:
         if verbose: print("Saving data\n")
         df_out.to_parquet(path = out_path, engine = "pyarrow")
         
+    def get_yf_hy_etfs(self, verbose: bool = True) -> None:
+        
+        if verbose: print("Getting HY ETFs")
+        
+        out_path = os.path.join(self.data_path, "HYETFs.parquet")
+        if os.path.exists(out_path):
+            if verbose: print("Already have data\n")
+            return None
+        
+        df_raw = (yf
+                  .download(
+                    tickers     = self.hy_tickers,
+                    start       = self.start_date,
+                    end         = self.end_date,
+                    auto_adjust = False)
+                  .reset_index()
+                  .melt(id_vars = [(     'Date',     '')])
+                  .rename(columns = {(     'Date',     ''): "Date"}))
+        
+        if verbose: print("Saving data\n")
+        df_raw.to_parquet(path = out_path, engine = "pyarrow")
+        
 def main() -> None: 
         
     credit_collect = CreditDataCollector()
     credit_collect.get_raw_index_data()
     credit_collect.slice_index_data()
+    credit_collect.get_yf_hy_etfs()
     
 if __name__ == "__main__": main()
